@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCTS - Récompenses Fixes au Dernier Étage</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      background-color: #1e293b;
+      padding: 12px 20px;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      background-color: #3b82f6;
+      color: #ffffff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover { background-color: #2563eb; }
+    .btn-secondary { background-color: #475569; }
+    .btn-secondary:hover { background-color: #334155; }
+    .btn-accent { background-color: #10b981; }
+    .btn-accent:hover { background-color: #059669; }
+    .btn-danger { background-color: #ef4444; }
+    .btn-danger:hover { background-color: #dc2626; }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      background-color: #020617;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .phase-bar {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 6px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      backdrop-filter: blur(4px);
+    }
+
+    .phase-badge {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #64748b;
+      transition: all 0.3s;
+    }
+
+    .phase-badge.active { color: #ffffff; }
+    .phase-badge.p-selection.active { background-color: #eab308; color: #000; }
+    .phase-badge.p-expansion.active { background-color: #06b6d4; color: #000; }
+    .phase-badge.p-simulation.active { background-color: #a855f7; color: #fff; }
+    .phase-badge.p-backprop.active { background-color: #22c55e; color: #000; }
+
+    .side-panel {
+      width: 310px;
+      background-color: #0f172a;
+      border-left: 1px solid #1e293b;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-section {
+      padding: 15px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .panel-section h3 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .stat-card {
+      background: #1e293b;
+      padding: 8px;
+      border-radius: 6px;
+    }
+
+    .stat-label { color: #64748b; font-size: 11px; }
+    .stat-value { font-size: 14px; font-weight: bold; color: #f8fafc; }
+
+    .log-container {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .log-entry {
+      padding: 5px 8px;
+      border-radius: 4px;
+      background-color: #1e293b;
+      border-left: 3px solid #64748b;
+      line-height: 1.4;
+    }
+
+    .log-entry.selection { border-color: #eab308; }
+    .log-entry.expansion { border-color: #06b6d4; }
+    .log-entry.simulation { border-color: #a855f7; }
+    .log-entry.backprop { border-color: #22c55e; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="controls-group">
+      <button class="btn" id="btn-step">Étape suivante</button>
+      <button class="btn btn-secondary" id="btn-10">1 Itération complète</button>
+      <button class="btn btn-accent" id="btn-play">▶ Lancer</button>
+      <button class="btn btn-danger" id="btn-reset">Réinitialiser</button>
+    </div>
+
+    <div class="controls-group">
+      <div class="slider-container">
+        <label for="slider-c">Constante C (UCB1) : <b id="val-c">1.41</b></label>
+        <input type="range" id="slider-c" min="0" max="3" step="0.1" value="1.41">
+      </div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div class="canvas-container" id="canvas-container">
+      <div class="phase-bar">
+        <div class="phase-badge p-selection" id="badge-0">1. Sélection</div>
+        <div class="phase-badge p-expansion" id="badge-1">2. Extension</div>
+        <div class="phase-badge p-simulation" id="badge-2">3. Simulation (Étage 3)</div>
+        <div class="phase-badge p-backprop" id="badge-3">4. Rétropropagation</div>
+      </div>
+      <canvas id="mcts-canvas"></canvas>
+    </div>
+
+    <div class="side-panel">
+      <div class="panel-section">
+        <h3>Détails du Nœud</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">ID / Étage</div>
+            <div class="stat-value" id="node-id">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Visites (N)</div>
+            <div class="stat-value" id="node-n">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Victoires (W)</div>
+            <div class="stat-value" id="node-w">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Score UCB1</div>
+            <div class="stat-value" id="node-ucb">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+        <h3>Journal d'exécution</h3>
+        <div class="log-container" id="log-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MAX_DEPTH = 3; // Étage 0 (Racine), 1, 2, 3 (Feuilles)
+    const BRANCHING = 3;  // Exactly 3 choices per node
+    let idCounter = 0;
+
+    class MCTSNode {
+      constructor(parent = null, actionIndex = 0) {
+        this.id = idCounter++;
+        this.parent = parent;
+        this.actionIndex = actionIndex;
+        this.children = [];
+        this.visits = 0;
+        this.wins = 0;
+        this.depth = parent ? parent.depth + 1 : 0;
+        this.x = 0;
+        this.y = 0;
+
+        // Récompense FIXÉE À LA CRÉATION uniquement pour l'Étage 3 (Feuilles)
+        if (this.depth === MAX_DEPTH) {
+          // Attribue un résultat 1 ou 0 de manière déterministe basée sur l'ID
+          this.fixedReward = (this.id % 2 === 0) ? 1 : 0;
+        } else {
+          this.fixedReward = null;
+        }
+      }
+
+      get isLeaf() {
+        return this.depth === MAX_DEPTH;
+      }
+
+      get isFullyExpanded() {
+        return this.children.length === BRANCHING;
+      }
+
+      get winRate() {
+        return this.visits === 0 ? 0 : this.wins / this.visits;
+      }
+
+      getUCB1(c) {
+        if (this.visits === 0) return Infinity;
+        if (!this.parent) return this.winRate;
+        return this.winRate + c * Math.sqrt(Math.log(this.parent.visits) / this.visits);
+      }
+    }
+
+    // État MCTS
+    let root = new MCTSNode();
+    let currentPhase = 0; // 0: Sélection, 1: Extension, 2: Simulation, 3: Rétropropagation
+    let currentNode = root;
+    let selectedPath = [];
+    let expandedChild = null;
+    let simulatedLeaf = null;
+    let lastReward = null;
+    let explorationC = 1.41;
+    let autoPlayInterval = null;
+
+    const canvas = document.getElementById('mcts-canvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
+
+    // --- ALGORITHME MCTS ---
+
+    function stepMCTS() {
+      switch (currentPhase) {
+        case 0: // 1. SÉLECTION
+          expandedChild = null;
+          simulatedLeaf = null;
+          lastReward = null;
+          selectedPath = [root];
+
+          let node = root;
+          while (node.isFullyExpanded && !node.isLeaf) {
+            let bestChild = null;
+            let bestUCB = -Infinity;
+
+            for (let child of node.children) {
+              let ucb = child.getUCB1(explorationC);
+              if (ucb > bestUCB) {
+                bestUCB = ucb;
+                bestChild = child;
+              }
+            }
+            if (!bestChild) break;
+            node = bestChild;
+            selectedPath.push(node);
+          }
+
+          currentNode = node;
+          log(`[Sélection] Descendu au nœud #${currentNode.id} (Étage ${currentNode.depth})`, 'selection');
+          currentPhase = 1;
+          break;
+
+        case 1: // 2. EXTENSION
+          if (!currentNode.isLeaf && !currentNode.isFullyExpanded) {
+            let nextAction = currentNode.children.length;
+            expandedChild = new MCTSNode(currentNode, nextAction);
+            currentNode.children.push(expandedChild);
+            selectedPath.push(expandedChild);
+            log(`[Extension] Création du nœud #${expandedChild.id} (Action ${nextAction + 1}/3)`, 'expansion');
+          } else if (currentNode.isLeaf) {
+            expandedChild = currentNode;
+            log(`[Extension] Déjà à l'étage final (Étage 3).`, 'expansion');
+          } else {
+            expandedChild = currentNode;
+            log(`[Extension] Nœud déjà étendu.`, 'expansion');
+          }
+          currentPhase = 2;
+          break;
+
+        case 2: // 3. SIMULATION (ROLLOUT jusqu'à la Feuille)
+          let curr = expandedChild;
+          
+          while (!curr.isLeaf) {
+            let randomAction = Math.floor(Math.random() * BRANCHING);
+            let existing = curr.children.find(c => c.actionIndex === randomAction);
+            if (!existing) {
+              existing = new MCTSNode(curr, randomAction);
+              curr.children.push(existing);
+            }
+            curr = existing;
+            if (!selectedPath.includes(curr)) selectedPath.push(curr);
+          }
+
+          simulatedLeaf = curr;
+          // Utilisation de la récompense FIXÉE du nœud feuille
+          lastReward = simulatedLeaf.fixedReward;
+          
+          log(`[Simulation] Atteint la feuille #${simulatedLeaf.id} (Étage 3). Récompense FIXE = ${lastReward}`, 'simulation');
+          currentPhase = 3;
+          break;
+
+        case 3: // 4. RÉTROPROPAGATION
+          let backtrack = simulatedLeaf;
+          let nodesUpdated = 0;
+
+          while (backtrack) {
+            backtrack.visits += 1;
+            backtrack.wins += lastReward;
+            backtrack = backtrack.parent;
+            nodesUpdated++;
+          }
+
+          log(`[Rétropropagation] Propagation de +${lastReward} sur ${nodesUpdated} nœuds.`, 'backprop');
+          currentPhase = 0;
+          break;
+      }
+
+      updateUI();
+      drawTree();
+    }
+
+    // --- LOGS & UI ---
+
+    function log(msg, type) {
+      const container = document.getElementById('log-container');
+      const div = document.createElement('div');
+      div.className = `log-entry ${type}`;
+      div.innerText = msg;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function updateUI() {
+      for (let i = 0; i < 4; i++) {
+        const badge = document.getElementById(`badge-${i}`);
+        badge.classList.toggle('active', i === currentPhase);
+      }
+
+      const activeNode = simulatedLeaf || expandedChild || currentNode || root;
+      document.getElementById('node-id').innerText = `#${activeNode.id} (E${activeNode.depth})`;
+      document.getElementById('node-n').innerText = activeNode.visits;
+      document.getElementById('node-w').innerText = activeNode.wins;
+      
+      const ucb = activeNode.getUCB1(explorationC);
+      document.getElementById('node-ucb').innerText = ucb === Infinity ? '∞' : ucb.toFixed(2);
+    }
+
+    // --- RENDU CANVAS ---
+
+    function resizeCanvas() {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      drawTree();
+    }
+
+    function layoutTree() {
+      const startY = 60;
+      const levelHeight = (canvas.height - 100) / MAX_DEPTH;
+
+      function positionNode(node, leftBound, rightBound) {
+        node.x = (leftBound + rightBound) / 2;
+        node.y = startY + node.depth * levelHeight;
+
+        if (node.children.length > 0) {
+          const step = (rightBound - leftBound) / BRANCHING;
+          node.children.forEach((child, i) => {
+            let childLeft = leftBound + i * step;
+            let childRight = childLeft + step;
+            positionNode(child, childLeft, childRight);
+          });
+        }
+      }
+
+      positionNode(root, 20, canvas.width - 20);
+    }
+
+    function drawTree() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      layoutTree();
+
+      // Étiquettes d'étages
+      ctx.fillStyle = '#475569';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'left';
+      const levelHeight = (canvas.height - 100) / MAX_DEPTH;
+      for (let d = 0; d <= MAX_DEPTH; d++) {
+        let label = d === 0 ? "Étage 0 (Racine)" : d === MAX_DEPTH ? "Étage 3 (Feuilles - Valeur Fixe [0 ou 1])" : `Étage ${d}`;
+        ctx.fillText(label, 15, 60 + d * levelHeight - 25);
+      }
+
+      // Connexions
+      function drawEdges(node) {
+        node.children.forEach(child => {
+          ctx.beginPath();
+          ctx.moveTo(node.x, node.y);
+          ctx.lineTo(child.x, child.y);
+
+          const isSelected = selectedPath.includes(node) && selectedPath.includes(child);
+          ctx.strokeStyle = isSelected ? '#eab308' : '#1e293b';
+          ctx.lineWidth = isSelected ? 3 : 1;
+          ctx.stroke();
+
+          drawEdges(child);
+        });
+      }
+      drawEdges(root);
+
+      // Nœuds
+      function drawNodes(node) {
+        ctx.beginPath();
+        const radius = node.isLeaf ? 16 : 17;
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+
+        let fillColor = '#0f172a';
+        let strokeColor = '#334155';
+        let textColor = '#cbd5e1';
+
+        if (node === simulatedLeaf) {
+          fillColor = '#a855f7';
+          strokeColor = '#c084fc';
+          textColor = '#ffffff';
+        } else if (node === expandedChild) {
+          fillColor = '#06b6d4';
+          strokeColor = '#67e8f9';
+          textColor = '#000000';
+        } else if (selectedPath.includes(node)) {
+          fillColor = '#eab308';
+          strokeColor = '#fde047';
+          textColor = '#000000';
+        }
+
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Texte W/N sur le nœud
+        ctx.fillStyle = textColor;
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = node.visits > 0 ? `${node.wins}/${node.visits}` : '0/0';
+        ctx.fillText(label, node.x, node.y);
+
+        // BADGE RECOMPENSE FIXE pour l'Étage 3
+        if (node.isLeaf) {
+          ctx.fillStyle = node.fixedReward === 1 ? '#22c55e' : '#ef4444';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillText(`r=${node.fixedReward}`, node.x, node.y + 26);
+        }
+
+        node.children.forEach(drawNodes);
+      }
+      drawNodes(root);
+    }
+
+    // --- ÉVÉNEMENTS ---
+
+    document.getElementById('btn-step').addEventListener('click', stepMCTS);
+
+    document.getElementById('btn-10').addEventListener('click', () => {
+      for (let i = 0; i < 4; i++) stepMCTS();
+    });
+
+    const playBtn = document.getElementById('btn-play');
+    playBtn.addEventListener('click', () => {
+      if (autoPlayInterval) {
+        clearInterval(autoPlayInterval);
+        autoPlayInterval = null;
+        playBtn.innerText = '▶ Lancer';
+        playBtn.className = 'btn btn-accent';
+      } else {
+        autoPlayInterval = setInterval(stepMCTS, 300);
+        playBtn.innerText = '⏸ Pause';
+        playBtn.className = 'btn btn-danger';
+      }
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      if (autoPlayInterval) {
+        clearInterval(autoPlayInterval);
+        autoPlayInterval = null;
+        playBtn.innerText = '▶ Lancer';
+        playBtn.className = 'btn btn-accent';
+      }
+      idCounter = 0;
+      root = new MCTSNode();
+      currentPhase = 0;
+      currentNode = root;
+      selectedPath = [];
+      expandedChild = null;
+      simulatedLeaf = null;
+      document.getElementById('log-container').innerHTML = '';
+      log('Arbre réinitialisé avec valeurs de récompenses fixes.', 'selection');
+      updateUI();
+      drawTree();
+    });
+
+    document.getElementById('slider-c').addEventListener('input', (e) => {
+      explorationC = parseFloat(e.target.value);
+      document.getElementById('val-c').innerText = explorationC.toFixed(2);
+      updateUI();
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Initialisation
+    resizeCanvas();
+    log('Initialisation : Les feuilles de l\'étage 3 ont désormais une valeur (r=0 ou r=1) attribuée définitivement.', 'selection');
+    updateUI();
+  </script>
+</body>
+</html>
