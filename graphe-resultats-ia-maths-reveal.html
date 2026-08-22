@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Résultats mathématiques prouvés par l’IA</title>
+
+  <!-- Remplacez la version si votre présentation utilise une autre release. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/theme/white.css">
+
+  <style>
+    :root {
+      --ink: #17213a;
+      --muted: #667085;
+      --grid: #dfe4ec;
+      --accent: #6c5ce7;
+      --accent-soft: #dcd7ff;
+    }
+
+    .reveal { color: var(--ink); }
+
+    .reveal .slides section {
+      text-align: left;
+      padding: 0;
+    }
+
+    .chart-slide h2 {
+      margin: 0 0 0.15em;
+      font-size: 1.25em;
+      color: var(--ink);
+    }
+
+    .chart-slide .subtitle {
+      margin: 0 0 0.7em;
+      font-size: 0.48em;
+      color: var(--muted);
+    }
+
+    #proofs-chart {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    .grid-line {
+      stroke: var(--grid);
+      stroke-width: 1;
+    }
+
+    .axis-line {
+      stroke: var(--ink);
+      stroke-width: 2;
+    }
+
+    .tick-label,
+    .axis-label,
+    .point-label {
+      font-family: Inter, system-ui, sans-serif;
+      fill: var(--muted);
+    }
+
+    .tick-label { font-size: 18px; }
+    .axis-label { font-size: 21px; font-weight: 600; fill: var(--ink); }
+    .point-label { font-size: 18px; font-weight: 700; fill: var(--accent); }
+
+    .series-line {
+      fill: none;
+      stroke: var(--accent-soft);
+      stroke-width: 6;
+      stroke-linecap: round;
+    }
+
+    .point-halo { fill: var(--accent-soft); }
+    .point { fill: var(--accent); stroke: white; stroke-width: 4; }
+
+    .hint {
+      position: absolute;
+      right: 0;
+      bottom: -0.4em;
+      margin: 0;
+      font-size: 0.36em;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <!-- Cette section peut être copiée telle quelle dans une présentation existante. -->
+      <section class="chart-slide">
+        <h2>Les progrès de l’IA en mathématiques</h2>
+        <p class="subtitle">Nombre de résultats prouvés par année — données d’exemple</p>
+        <svg id="proofs-chart" viewBox="0 0 1120 610" role="img"
+             aria-label="Évolution du nombre de résultats mathématiques prouvés par l’IA"></svg>
+        <p class="hint">→ pour révéler le point suivant</p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    /* ----------------------------------------------------------------------
+       DONNÉES À MODIFIER
+       Ajoutez ou remplacez les objets { year, proofs, label }.
+       `label` est facultatif ; il sert à annoter un jalon important.
+       ---------------------------------------------------------------------- */
+    const data = [
+      { year: 2019, proofs: 2 },
+      { year: 2020, proofs: 4 },
+      { year: 2021, proofs: 7 },
+      { year: 2022, proofs: 13 },
+      { year: 2023, proofs: 24 },
+      { year: 2024, proofs: 41, label: "Accélération" },
+      { year: 2025, proofs: 68 }
+    ];
+
+    const svg = document.querySelector("#proofs-chart");
+    const NS = "http://www.w3.org/2000/svg";
+    const W = 1120;
+    const H = 610;
+    const margin = { top: 38, right: 72, bottom: 92, left: 112 };
+    const innerW = W - margin.left - margin.right;
+    const innerH = H - margin.top - margin.bottom;
+
+    const years = data.map(d => d.year);
+    const values = data.map(d => d.proofs);
+    const minYear = Math.min(...years);
+    const maxYear = Math.max(...years);
+    const rawMax = Math.max(...values, 1);
+
+    // Arrondit l’axe Y à une valeur lisible et génère 5 intervalles.
+    const magnitude = 10 ** Math.floor(Math.log10(rawMax));
+    const normalized = rawMax / magnitude;
+    const niceFactor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+    const yMax = niceFactor * magnitude;
+    const yTicks = Array.from({ length: 6 }, (_, i) => (yMax / 5) * i);
+
+    const x = year => margin.left + ((year - minYear) / Math.max(maxYear - minYear, 1)) * innerW;
+    const y = value => margin.top + innerH - (value / yMax) * innerH;
+
+    function el(name, attrs = {}, text = "") {
+      const node = document.createElementNS(NS, name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+      if (text !== "") node.textContent = text;
+      return node;
+    }
+
+    // Grille et axe Y.
+    yTicks.forEach(value => {
+      const py = y(value);
+      svg.append(el("line", { x1: margin.left, y1: py, x2: W - margin.right, y2: py, class: "grid-line" }));
+      svg.append(el("text", { x: margin.left - 22, y: py + 6, "text-anchor": "end", class: "tick-label" }, String(Math.round(value))));
+    });
+
+    svg.append(el("line", { x1: margin.left, y1: margin.top, x2: margin.left, y2: H - margin.bottom, class: "axis-line" }));
+    svg.append(el("line", { x1: margin.left, y1: H - margin.bottom, x2: W - margin.right, y2: H - margin.bottom, class: "axis-line" }));
+
+    // Une graduation par année présente dans les données.
+    data.forEach(d => {
+      svg.append(el("text", {
+        x: x(d.year), y: H - margin.bottom + 38,
+        "text-anchor": "middle", class: "tick-label"
+      }, String(d.year)));
+    });
+
+    svg.append(el("text", {
+      x: margin.left + innerW / 2, y: H - 18,
+      "text-anchor": "middle", class: "axis-label"
+    }, "Année"));
+
+    svg.append(el("text", {
+      x: 27, y: margin.top + innerH / 2,
+      transform: `rotate(-90 27 ${margin.top + innerH / 2})`,
+      "text-anchor": "middle", class: "axis-label"
+    }, "Nombre de résultats prouvés"));
+
+    /* Chaque groupe est un fragment reveal.js. Un appui sur → révèle donc
+       exactement un nouveau segment et son point. */
+    data.forEach((d, index) => {
+      const group = el("g", {
+        class: "fragment fade-in",
+        "data-fragment-index": index
+      });
+
+      if (index > 0) {
+        const previous = data[index - 1];
+        group.append(el("line", {
+          x1: x(previous.year), y1: y(previous.proofs),
+          x2: x(d.year), y2: y(d.proofs),
+          class: "series-line"
+        }));
+      }
+
+      group.append(el("circle", { cx: x(d.year), cy: y(d.proofs), r: 16, class: "point-halo" }));
+      group.append(el("circle", { cx: x(d.year), cy: y(d.proofs), r: 9, class: "point" }));
+      group.append(el("text", {
+        x: x(d.year), y: y(d.proofs) - 25,
+        "text-anchor": "middle", class: "point-label"
+      }, d.label ? `${d.proofs} · ${d.label}` : String(d.proofs)));
+
+      svg.append(group);
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      controls: true,
+      progress: true,
+      center: true,
+      transition: "fade"
+    });
+  </script>
+</body>
+</html>
