@@ -262,3 +262,9 @@
     font-size: 26px;
   }
 }
+
+/* Figures */
+.reveal figure {
+  margin: 0 auto;
+  text-align: center;
+}
