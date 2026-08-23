@@ -78,6 +78,21 @@
         </section>
 
         <section> 
+          <h2>Example (2024, problem 6)</h2>
+          <p>
+            Let $\mathbb{Q}$ be the set of rational numbers.
+            A function $f:\mathbb{Q} \to \mathbb{Q}$ is called $\textit{aquaesulian}$ if the following property holds:
+          </p>
+          <p>
+            for every $x,y \in \mathbb{Q}$,
+            $$f(x+f(y)) = f(x) + y \ \ \text{ or } \ \ f(f(x)+y) = x+f(y)$$
+            Show that there exists an integer $c$ such that for any aquaesulian function $f$
+            there are at most $c$ different rational numbers of the form $f(r)+f(-r)$ for some rational number $r$,
+            and find the smallest possible value of $c$. 
+          </p>
+        </section>
+
+<!--         <section> 
           <h2>Example (2025, problem 3)</h2>
           <p>Let $\N$ denote the set of positive integers.
             A function $f : \N \to \N$ is said to be $\textit{bonza}$ if </p>
@@ -89,7 +104,17 @@
             Determine the smallest real constant $c$ such that $f(n) \leq c n$
             for all bonza functions $f$ and all positive integers $n$.
           </p>
-        </section>
+        </section> -->
+
+<section>
+  <iframe
+    src="./Olympiad-level_math_reasoning_RL.pdf#page=19"
+    width="90%"
+    height="650"
+    style="border: 0;">
+  </iframe>
+</section>
+
 
         <section>
           <h2>Results</h2>
@@ -105,19 +130,6 @@
         </section>
 
 
-
-	  
-        <section>
-          <!-- <h2>Une image</h2> -->
-           <figure>
-              <img
-                  src="images/Auto-formalizing_process.png"
-                  alt="Description de la photo"
-                  style="width: 85%; height: auto;"
-                  >
-                  <figcaption>Auto-formalizing process</figcaption>
-          </figure>
-        </section>
 	  
         <section>
           <!-- <h2>Une image</h2> -->
@@ -131,6 +143,32 @@
           </figure>
         </section>
 
+	  
+        <section>
+          <!-- <h2>Une image</h2> -->
+           <figure>
+              <img
+                  src="images/Auto-formalizing_process.png"
+                  alt="Description de la photo"
+                  style="width: 85%; height: auto;"
+                  >
+                  <figcaption>Auto-formalizing process</figcaption>
+          </figure>
+        </section>
+
+
+<!-- Le formalization system est utilisé avant et pendant l’entraînement général (main RL).
+Un LLM basé sur Gemini traduit environ un million de problèmes informels en quelque 80 millions d’énoncés Lean.
+Il peut produire plusieurs formalisations par problème,
+et celles-ci n’ont même pas besoin de restituer parfaitement le sens original :
+il suffit qu’elles constituent des problèmes formels valides et exploitables pour apprendre des stratégies générales de preuve. -->
+
+<!-- Le variant generator intervient plutôt à l’inférence, dans le Test-Time Reinforcement Learning (TTRL).
+Il reçoit un théorème Lean difficile déjà défini, puis génère des centaines de milliers de problèmes proches :
+simplifications, généralisations, lemmes auxiliaires, décompositions, analogies ou modifications systématiques des hypothèses et du but.
+AlphaProof s’entraîne alors temporairement sur ce curriculum spécialisé afin d’acquérir des idées utiles au problème initial.
+Il génère des Synthetic problem variants.
+-->
 
         <section>
           <!-- <h2>Démonstration interactive</h2> -->
@@ -146,6 +184,16 @@
           data-background-iframe="mcts_visualizer.html"
           data-background-interactive
         >
+        </section>
+
+        <section>
+          <h2>Thank you!</h2>
+          <p>Any questions?</p>
+        </section>
+
+        <section>
+          <h2>Other results</h2>
+          <p>Riemann hypothesis & others</p>
         </section>
 
         <section>
