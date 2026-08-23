@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MCTS - Récompenses Fixes au Dernier Étage</title>
+  <title>MCTS - Fixed Rewards at the Final Level</title>
   <style>
     * {
       box-sizing: border-box;
@@ -178,15 +178,15 @@
 
   <header>
     <div class="controls-group">
-      <button class="btn" id="btn-step">Étape suivante</button>
-      <button class="btn btn-secondary" id="btn-10">1 Itération complète</button>
-      <button class="btn btn-accent" id="btn-play">▶ Lancer</button>
-      <button class="btn btn-danger" id="btn-reset">Réinitialiser</button>
+      <button class="btn" id="btn-step">Next Step</button>
+      <button class="btn btn-secondary" id="btn-10">1 Full Iteration</button>
+      <button class="btn btn-accent" id="btn-play">▶ Start</button>
+      <button class="btn btn-danger" id="btn-reset">Reset</button>
     </div>
 
     <div class="controls-group">
       <div class="slider-container">
-        <label for="slider-c">Constante C (UCB1) : <b id="val-c">1.41</b></label>
+        <label for="slider-c">C Constant (UCB1): <b id="val-c">1.41</b></label>
         <input type="range" id="slider-c" min="0" max="3" step="0.1" value="1.41">
       </div>
     </div>
@@ -195,28 +195,28 @@
   <div class="main-container">
     <div class="canvas-container" id="canvas-container">
       <div class="phase-bar">
-        <div class="phase-badge p-selection" id="badge-0">1. Sélection</div>
-        <div class="phase-badge p-expansion" id="badge-1">2. Extension</div>
-        <div class="phase-badge p-simulation" id="badge-2">3. Simulation (Étage 3)</div>
-        <div class="phase-badge p-backprop" id="badge-3">4. Rétropropagation</div>
+        <div class="phase-badge p-selection" id="badge-0">1. Selection</div>
+        <div class="phase-badge p-expansion" id="badge-1">2. Expansion</div>
+        <div class="phase-badge p-simulation" id="badge-2">3. Simulation (Level 3)</div>
+        <div class="phase-badge p-backprop" id="badge-3">4. Backpropagation</div>
       </div>
       <canvas id="mcts-canvas"></canvas>
     </div>
 
     <div class="side-panel">
       <div class="panel-section">
-        <h3>Détails du Nœud</h3>
+        <h3>Node Details</h3>
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-label">ID / Étage</div>
+            <div class="stat-label">ID / Level</div>
             <div class="stat-value" id="node-id">-</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Visites (N)</div>
+            <div class="stat-label">Visits (N)</div>
             <div class="stat-value" id="node-n">-</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Victoires (W)</div>
+            <div class="stat-label">Wins (W)</div>
             <div class="stat-value" id="node-w">-</div>
           </div>
           <div class="stat-card">
@@ -227,14 +227,14 @@
       </div>
 
       <div class="panel-section" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
-        <h3>Journal d'exécution</h3>
+        <h3>Execution Log</h3>
         <div class="log-container" id="log-container"></div>
       </div>
     </div>
   </div>
 
   <script>
-    const MAX_DEPTH = 3; // Étage 0 (Racine), 1, 2, 3 (Feuilles)
+    const MAX_DEPTH = 3; // Level 0 (Root), 1, 2, 3 (Leaves)
     const BRANCHING = 3;  // Exactly 3 choices per node
     let idCounter = 0;
 
@@ -250,9 +250,9 @@
         this.x = 0;
         this.y = 0;
 
-        // Récompense FIXÉE À LA CRÉATION uniquement pour l'Étage 3 (Feuilles)
+        // Reward FIXED AT CREATION only for Level 3 (Leaves)
         if (this.depth === MAX_DEPTH) {
-          // Attribue un résultat 1 ou 0 de manière déterministe basée sur l'ID
+          // Assigns a result of 1 or 0 deterministically based on the ID
           this.fixedReward = (this.id % 2 === 0) ? 1 : 0;
         } else {
           this.fixedReward = null;
@@ -278,12 +278,14 @@
       }
     }
 
-    // État MCTS
+    // MCTS state
     let root = new MCTSNode();
-    let currentPhase = 0; // 0: Sélection, 1: Extension, 2: Simulation, 3: Rétropropagation
+    let currentPhase = 0; // 0: Selection, 1: Expansion, 2: Simulation, 3: Backpropagation
+    let displayedPhase = 0; // Phase represented by the current tree and log state
     let currentNode = root;
     let selectedPath = [];
     let expandedChild = null;
+    let rolloutNode = null;
     let simulatedLeaf = null;
     let lastReward = null;
     let explorationC = 1.41;
@@ -293,12 +295,17 @@
     const ctx = canvas.getContext('2d');
     const container = document.getElementById('canvas-container');
 
-    // --- ALGORITHME MCTS ---
+    // --- MCTS ALGORITHM ---
 
     function stepMCTS() {
+      // Remember the phase being executed before advancing the state machine.
+      // The UI must describe the result of this click, not the next click.
+      displayedPhase = currentPhase;
+
       switch (currentPhase) {
-        case 0: // 1. SÉLECTION
+        case 0: // 1. SELECTION
           expandedChild = null;
+          rolloutNode = null;
           simulatedLeaf = null;
           lastReward = null;
           selectedPath = [root];
@@ -321,31 +328,40 @@
           }
 
           currentNode = node;
-          log(`[Sélection] Descendu au nœud #${currentNode.id} (Étage ${currentNode.depth})`, 'selection');
+          log(`[Selection] Descended to node #${currentNode.id} (Level ${currentNode.depth})`, 'selection');
           currentPhase = 1;
           break;
 
-        case 1: // 2. EXTENSION
+        case 1: // 2. EXPANSION
           if (!currentNode.isLeaf && !currentNode.isFullyExpanded) {
-            let nextAction = currentNode.children.length;
+            // Rollouts may have created actions out of order, so select an
+            // actually unused action instead of relying on the child count.
+            let nextAction = Array.from(
+              { length: BRANCHING },
+              (_, actionIndex) => actionIndex
+            ).find(actionIndex =>
+              !currentNode.children.some(child => child.actionIndex === actionIndex)
+            );
             expandedChild = new MCTSNode(currentNode, nextAction);
             currentNode.children.push(expandedChild);
             selectedPath.push(expandedChild);
-            log(`[Extension] Création du nœud #${expandedChild.id} (Action ${nextAction + 1}/3)`, 'expansion');
+            log(`[Expansion] Created node #${expandedChild.id} (Action ${nextAction + 1}/3)`, 'expansion');
           } else if (currentNode.isLeaf) {
             expandedChild = currentNode;
-            log(`[Extension] Déjà à l'étage final (Étage 3).`, 'expansion');
+            log(`[Expansion] Already at the final level (Level 3).`, 'expansion');
           } else {
             expandedChild = currentNode;
-            log(`[Extension] Nœud déjà étendu.`, 'expansion');
+            log(`[Expansion] Node already expanded.`, 'expansion');
           }
           currentPhase = 2;
           break;
 
-        case 2: // 3. SIMULATION (ROLLOUT jusqu'à la Feuille)
-          let curr = expandedChild;
-          
-          while (!curr.isLeaf) {
+        case 2: // 3. SIMULATION (ROLLOUT to a Leaf)
+          let curr = rolloutNode || expandedChild;
+
+          // Advance by exactly one tree level per step so every intermediate
+          // level remains visible instead of being traversed in one click.
+          if (!curr.isLeaf) {
             let randomAction = Math.floor(Math.random() * BRANCHING);
             let existing = curr.children.find(c => c.actionIndex === randomAction);
             if (!existing) {
@@ -356,15 +372,21 @@
             if (!selectedPath.includes(curr)) selectedPath.push(curr);
           }
 
-          simulatedLeaf = curr;
-          // Utilisation de la récompense FIXÉE du nœud feuille
-          lastReward = simulatedLeaf.fixedReward;
-          
-          log(`[Simulation] Atteint la feuille #${simulatedLeaf.id} (Étage 3). Récompense FIXE = ${lastReward}`, 'simulation');
-          currentPhase = 3;
+          rolloutNode = curr;
+
+          if (curr.isLeaf) {
+            simulatedLeaf = curr;
+            // Use the leaf node's FIXED reward
+            lastReward = simulatedLeaf.fixedReward;
+            log(`[Simulation] Reached leaf #${simulatedLeaf.id} (Level 3). FIXED reward = ${lastReward}`, 'simulation');
+            currentPhase = 3;
+          } else {
+            log(`[Simulation] Advanced to node #${curr.id} (Level ${curr.depth}).`, 'simulation');
+            currentPhase = 2;
+          }
           break;
 
-        case 3: // 4. RÉTROPROPAGATION
+        case 3: // 4. BACKPROPAGATION
           let backtrack = simulatedLeaf;
           let nodesUpdated = 0;
 
@@ -375,7 +397,7 @@
             nodesUpdated++;
           }
 
-          log(`[Rétropropagation] Propagation de +${lastReward} sur ${nodesUpdated} nœuds.`, 'backprop');
+          log(`[Backpropagation] Propagated +${lastReward} across ${nodesUpdated} nodes.`, 'backprop');
           currentPhase = 0;
           break;
       }
@@ -398,10 +420,10 @@
     function updateUI() {
       for (let i = 0; i < 4; i++) {
         const badge = document.getElementById(`badge-${i}`);
-        badge.classList.toggle('active', i === currentPhase);
+        badge.classList.toggle('active', i === displayedPhase);
       }
 
-      const activeNode = simulatedLeaf || expandedChild || currentNode || root;
+      const activeNode = simulatedLeaf || rolloutNode || expandedChild || currentNode || root;
       document.getElementById('node-id').innerText = `#${activeNode.id} (E${activeNode.depth})`;
       document.getElementById('node-n').innerText = activeNode.visits;
       document.getElementById('node-w').innerText = activeNode.wins;
@@ -410,7 +432,7 @@
       document.getElementById('node-ucb').innerText = ucb === Infinity ? '∞' : ucb.toFixed(2);
     }
 
-    // --- RENDU CANVAS ---
+    // --- CANVAS RENDERING ---
 
     function resizeCanvas() {
       canvas.width = container.clientWidth;
@@ -428,8 +450,10 @@
 
         if (node.children.length > 0) {
           const step = (rightBound - leftBound) / BRANCHING;
-          node.children.forEach((child, i) => {
-            let childLeft = leftBound + i * step;
+          node.children.forEach(child => {
+            // Keep each action in its own stable slot even when rollout nodes
+            // were inserted in a random order.
+            let childLeft = leftBound + child.actionIndex * step;
             let childRight = childLeft + step;
             positionNode(child, childLeft, childRight);
           });
@@ -443,17 +467,17 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       layoutTree();
 
-      // Étiquettes d'étages
+      // Level labels
       ctx.fillStyle = '#475569';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'left';
       const levelHeight = (canvas.height - 100) / MAX_DEPTH;
       for (let d = 0; d <= MAX_DEPTH; d++) {
-        let label = d === 0 ? "Étage 0 (Racine)" : d === MAX_DEPTH ? "Étage 3 (Feuilles - Valeur Fixe [0 ou 1])" : `Étage ${d}`;
+        let label = d === 0 ? "Level 0 (Root)" : d === MAX_DEPTH ? "Level 3 (Leaves - Fixed Value [0 or 1])" : `Level ${d}`;
         ctx.fillText(label, 15, 60 + d * levelHeight - 25);
       }
 
-      // Connexions
+      // Edges
       function drawEdges(node) {
         node.children.forEach(child => {
           ctx.beginPath();
@@ -470,7 +494,7 @@
       }
       drawEdges(root);
 
-      // Nœuds
+      // Nodes
       function drawNodes(node) {
         ctx.beginPath();
         const radius = node.isLeaf ? 16 : 17;
@@ -480,7 +504,7 @@
         let strokeColor = '#334155';
         let textColor = '#cbd5e1';
 
-        if (node === simulatedLeaf) {
+        if (node === simulatedLeaf || node === rolloutNode) {
           fillColor = '#a855f7';
           strokeColor = '#c084fc';
           textColor = '#ffffff';
@@ -500,7 +524,7 @@
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Texte W/N sur le nœud
+        // W/N text on the node
         ctx.fillStyle = textColor;
         ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
@@ -508,7 +532,29 @@
         const label = node.visits > 0 ? `${node.wins}/${node.visits}` : '0/0';
         ctx.fillText(label, node.x, node.y);
 
-        // BADGE RECOMPENSE FIXE pour l'Étage 3
+        // Red/green win-rate bar for Levels 0, 1, and 2.
+        // Red is the remaining share; green is the achieved W/N score.
+        if (!node.isLeaf) {
+          const barWidth = 34;
+          const barHeight = 8;
+          const barX = node.x + radius + 6;
+          const barY = node.y - barHeight / 2;
+          const score = Math.max(0, Math.min(1, node.winRate));
+
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(barX, barY, barWidth, barHeight);
+
+          if (score > 0) {
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(barX, barY, barWidth * score, barHeight);
+          }
+
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(barX, barY, barWidth, barHeight);
+        }
+
+        // FIXED REWARD BADGE for Level 3
         if (node.isLeaf) {
           ctx.fillStyle = node.fixedReward === 1 ? '#22c55e' : '#ef4444';
           ctx.font = 'bold 10px sans-serif';
@@ -520,21 +566,37 @@
       drawNodes(root);
     }
 
-    // --- ÉVÉNEMENTS ---
-
-    document.getElementById('btn-step').addEventListener('click', stepMCTS);
-
-    document.getElementById('btn-10').addEventListener('click', () => {
-      for (let i = 0; i < 4; i++) stepMCTS();
-    });
+    // --- EVENTS ---
 
     const playBtn = document.getElementById('btn-play');
+
+    function stopAutoPlay() {
+      if (!autoPlayInterval) return;
+      clearInterval(autoPlayInterval);
+      autoPlayInterval = null;
+      playBtn.innerText = '▶ Start';
+      playBtn.className = 'btn btn-accent';
+    }
+
+    document.getElementById('btn-step').addEventListener('click', () => {
+      // A manual step must remain visible until the next user action.
+      // Otherwise an active timer can immediately advance to the next phase.
+      stopAutoPlay();
+      stepMCTS();
+    });
+
+    document.getElementById('btn-10').addEventListener('click', () => {
+      // Finish exactly one iteration. If the user is midway through one,
+      // complete that iteration rather than spilling into the next one.
+      stopAutoPlay();
+      do {
+        stepMCTS();
+      } while (currentPhase !== 0);
+    });
+
     playBtn.addEventListener('click', () => {
       if (autoPlayInterval) {
-        clearInterval(autoPlayInterval);
-        autoPlayInterval = null;
-        playBtn.innerText = '▶ Lancer';
-        playBtn.className = 'btn btn-accent';
+        stopAutoPlay();
       } else {
         autoPlayInterval = setInterval(stepMCTS, 300);
         playBtn.innerText = '⏸ Pause';
@@ -543,21 +605,19 @@
     });
 
     document.getElementById('btn-reset').addEventListener('click', () => {
-      if (autoPlayInterval) {
-        clearInterval(autoPlayInterval);
-        autoPlayInterval = null;
-        playBtn.innerText = '▶ Lancer';
-        playBtn.className = 'btn btn-accent';
-      }
+      stopAutoPlay();
       idCounter = 0;
       root = new MCTSNode();
       currentPhase = 0;
+      displayedPhase = 0;
       currentNode = root;
       selectedPath = [];
       expandedChild = null;
+      rolloutNode = null;
       simulatedLeaf = null;
+      lastReward = null;
       document.getElementById('log-container').innerHTML = '';
-      log('Arbre réinitialisé avec valeurs de récompenses fixes.', 'selection');
+      log('Tree reset with fixed reward values.', 'selection');
       updateUI();
       drawTree();
     });
@@ -570,9 +630,9 @@
 
     window.addEventListener('resize', resizeCanvas);
 
-    // Initialisation
+    // Initialization
     resizeCanvas();
-    log('Initialisation : Les feuilles de l\'étage 3 ont désormais une valeur (r=0 ou r=1) attribuée définitivement.', 'selection');
+    log('Initialization: Level 3 leaves now have a permanently assigned value (r=0 or r=1).', 'selection');
     updateUI();
   </script>
 </body>

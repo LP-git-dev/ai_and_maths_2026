@@ -196,20 +196,33 @@ Il génère des Synthetic problem variants.
           ></iframe>
         </section>
 
-        <section
-          data-background-iframe="mcts_visualizer.html"
-          data-background-interactive
-        >
-        </section>
+
+
+<!--         <section>
+          Toy model that is widely used for games. It can be used/adapted to deal not only with trees, but with:
+        - 2 or more players
+        - with loops (for example chess, the board can "come back" to a state that was visited before)
+        - with rewards that popup (e.g. simple single player game that needs human guidance, with trackmania)
+        - with uncertainty (e.g. strategy games, where you don't see the whole map).
+
+        BUT there is one thing that this model cannot be adapted easily, it's scaling. -> cf Go.
+        </section> -->
+
 
         <section>
           <h2>Olympiads 2024 vs 2025</h2>
            <ul>
-            <li class="fragment">2025 algorithm was mainly done with Gemini, in natural language (not Lean)</li>
+            <li class="fragment">Contrary to 2024, the 2025 algorithm was mainly done with <b>Gemini</b> (natural language, not Lean)</li>
             <li class="fragment">No information/article to describe how they did</li>
             <li class="fragment">Drawback: The proofs do not come with the automatic Lean verification</li>
-            <li class="fragment">Similar to AlphaGo vs AlphaZero</li>
+            <!-- <li class="fragment">Similar to AlphaGo vs AlphaZero</li> -->
           </ul>
+        </section>
+
+        <section>
+          <h2>Implications</h2>
+          <p>What is the best representation space for AI mathematical reasoning?
+            Apparently, it's not Lean, but rather LLM + agents</p>
         </section>
 
         <section>
@@ -218,14 +231,13 @@ Il génère des Synthetic problem variants.
         </section>
 
         <section>
-          <h2>Implications</h2>
-          <p>What is the best representation space for AI mathematical reasoning? Apparently, not Lean.</p>
+          <h2>Implications bis</h2>
+          <p> What impact on the field on mathematical research?</p>
         </section>
 
 
         <section>
           <h2>Thank you!</h2>
-          <p>Any questions?</p>
         </section>
 
 
