@@ -255,6 +255,14 @@
   box-shadow: 0 12px 35px rgb(23 43 42 / 12%);
 }
 
+.item-swap {
+  display: grid;
+}
+
+.item-swap > * {
+  grid-area: 1 / 1;
+}
+
 /* Petits écrans */
 
 @media (max-width: 800px) {
